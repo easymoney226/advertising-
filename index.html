@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAILY EARNINGS</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #f6d365, #fda085);
+      color: #333;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: #ff6f61;
+      color: white;
+      font-size: 20px;
+    }
+    #menuBtn {
+      font-size: 20px;
+      cursor: pointer;
+      background: #333;
+      color: white;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+    }
+    #menu {
+      position: fixed;
+      top: 0;
+      right: -250px;
+      width: 250px;
+      height: 100%;
+      background: #333;
+      color: white;
+      padding: 20px;
+      transition: right 0.3s;
+      z-index: 1000;
+    }
+    #menu a {
+      display: block;
+      color: white;
+      text-decoration: none;
+      padding: 10px 0;
+      border-bottom: 1px solid #555;
+    }
+    #content {
+      padding: 20px;
+    }
+    input, button, select {
+      padding: 10px;
+      margin: 8px 0;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background: #ff6f61;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>DAILY EARNINGS</div>
+    <button id="menuBtn">☰</button>
+  </header>
+
+  <div id="menu">
+    <a href="#" onclick="showSection('profile')">Profile</a>
+    <a href="#" onclick="showSection('plan')">Plan</a>
+    <a href="#" onclick="showSection('deposit')">Deposit</a>
+    <a href="#" onclick="showSection('earn')">Earn Money</a>
+    <a href="#" onclick="showSection('withdraw')">Withdraw</a>
+    <a href="#" onclick="showSection('team')">Team</a>
+    <a href="#" onclick="showSection('helpline')">Helpline</a>
+    <a href="#" onclick="logout()">Logout</a>
+  </div>
+
+  <div id="content"></div>
+
+  <script>
+    let currentUser = null;
+    let users = JSON.parse(localStorage.getItem('users') || '{}');
+
+    function saveUsers() {
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+
+    function loginPage() {
+      document.getElementById('content').innerHTML = `
+        <h2>Login / Sign Up</h2>
+        <input id="gmail" placeholder="Enter Gmail">
+        <input id="username" placeholder="Enter Username">
+        <button onclick="login()">Login / Sign Up</button>
+      `;
+    }
+
+    function login() {
+      let gmail = document.getElementById('gmail').value;
+      let username = document.getElementById('username').value;
+      if(!gmail || !username) return alert("Fill all fields");
+      if(!users[gmail]) {
+        users[gmail] = {username: username, balance: 0, invites: [], clicks: [], plan: null, referralEarnings: 0};
+        saveUsers();
+      }
+      currentUser = gmail;
+      profilePage();
+    }
+
+    function logout() {
+      currentUser = null;
+      loginPage();
+    }
+
+    function showSection(section) {
+      if(section === 'profile') profilePage();
+      if(section === 'plan') planPage();
+      if(section === 'deposit') depositPage();
+      if(section === 'earn') earnPage();
+      if(section === 'withdraw') withdrawPage();
+      if(section === 'team') teamPage();
+      if(section === 'helpline') helplinePage();
+    }
+
+    function profilePage() {
+      let user = users[currentUser];
+      document.getElementById('content').innerHTML = `
+        <h2>Profile</h2>
+        <p><b>Username:</b> ${user.username}</p>
+        <p><b>Balance:</b> PKR ${user.balance}</p>
+        <p><b>Plan:</b> ${user.plan ? "Active (500 PKR, 30 PKR daily)" : "No plan purchased"}</p>
+      `;
+    }
+
+    function planPage() {
+      let user = users[currentUser];
+      if(user.plan) {
+        document.getElementById('content').innerHTML = `
+          <h2>Plan</h2>
+          <p>You already purchased the plan: Deposit PKR 500, Earn PKR 30 daily for 30 days</p>
+        `;
+      } else {
+        document.getElementById('content').innerHTML = `
+          <h2>Plan</h2>
+          <p>Deposit PKR 500 and earn PKR 30 daily for 30 days</p>
+          <button onclick="buyPlan()">Buy Plan</button>
+        `;
+      }
+    }
+
+    function buyPlan() {
+      let user = users[currentUser];
+      if(user.balance < 500) return alert("You need at least 500 PKR to buy this plan");
+      user.balance -= 500;
+      user.plan = {start: Date.now(), days: 30};
+      saveUsers();
+      // Check referral
+      for(let u in users){
+        if(users[u].invites.includes(currentUser)){
+          rewardReferral(u, currentUser);
+        }
+      }
+      alert("Plan purchased successfully!");
+      profilePage();
+    }
+
+    function depositPage() {
+      document.getElementById('content').innerHTML = `
+        <h2>Deposit</h2>
+        <p>JazzCash Number: 03228786546</p>
+        <input placeholder="Sender Phone Number">
+        <input placeholder="Transaction ID">
+        <input placeholder="Sender Name">
+        <input id="depositAmount" type="number" placeholder="Amount">
+        <button onclick="depositMoney()">Confirm Deposit</button>
+      `;
+    }
+
+    function depositMoney() {
+      let amount = parseInt(document.getElementById('depositAmount').value);
+      if(isNaN(amount) || amount <= 0) return alert("Enter valid amount");
+      users[currentUser].balance += amount;
+      saveUsers();
+      alert("Deposit Successful!");
+      profilePage();
+    }
+
+    function earnPage() {
+      let user = users[currentUser];
+      if(!user.plan) {
+        document.getElementById('content').innerHTML = `<h2>Earn Money</h2><p>You must buy a plan to watch ads and earn.</p>`;
+        return;
+      }
+      document.getElementById('content').innerHTML = `
+        <h2>Earn Money</h2>
+        <a href="https://youtube.com/shorts/W4dMwdPpJuA?si=dg_pxYfj7FsNWY_D" target="_blank">Watch Ad</a>
+        <button onclick="claimEarnings()">Claim +PKR 5</button>
+        <p>You can earn max 1 time per day</p>
+        <h3>Referral Bonus</h3>
+        <p>You earn 120 PKR for each referral who buys a plan!</p>
+      `;
+    }
+
+    function claimEarnings() {
+      let user = users[currentUser];
+      let today = new Date().toDateString();
+      if(!user.clicks) user.clicks = [];
+      let todayClicks = user.clicks.filter(c => c === today).length;
+      if(todayClicks >= 1) return alert("Limit reached for today");
+      user.balance += 5;
+      user.clicks.push(today);
+      saveUsers();
+      alert("+5 PKR added");
+      profilePage();
+    }
+
+    function withdrawPage() {
+      let user = users[currentUser];
+      if(!user.plan) {
+        document.getElementById('content').innerHTML = `<h2>Withdraw</h2><p>You must buy a plan before withdrawing money.</p>`;
+        return;
+      }
+      document.getElementById('content').innerHTML = `
+        <h2>Withdraw</h2>
+        <input id="withdrawNumber" placeholder="Your JazzCash Number">
+        <input id="withdrawAmount" type="number" placeholder="Amount (min 100 PKR)">
+        <button onclick="withdrawMoney()">Withdraw</button>
+      `;
+    }
+
+    function withdrawMoney() {
+      let amount = parseInt(document.getElementById('withdrawAmount').value);
+      if(isNaN(amount) || amount < 100) return alert("Minimum withdraw is 100 PKR");
+      if(amount > users[currentUser].balance) return alert("Insufficient balance");
+      users[currentUser].balance -= amount;
+      saveUsers();
+      alert("Withdraw request submitted");
+      profilePage();
+    }
+
+    function teamPage() {
+      let link = window.location.origin + window.location.pathname + "?ref=" + currentUser;
+      let invited = users[currentUser].invites || [];
+      let referralEarnings = users[currentUser].referralEarnings || 0;
+      document.getElementById('content').innerHTML = `
+        <h2>Team</h2>
+        <p>Your Invitation Link:</p>
+        <input value="${link}" readonly>
+        <h3>Invited Members:</h3>
+        <ul>${invited.map(i=>`<li>${i}</li>`).join('')}</ul>
+        <h3>Referral Bonus Earned:</h3>
+        <p><b>PKR ${referralEarnings}</b> (120 PKR per referral who buys a plan)</p>
+      `;
+    }
+
+    function helplinePage() {
+      document.getElementById('content').innerHTML = `
+        <h2>Helpline</h2>
+        <a href="https://whatsapp.com/channel/0029Vb6Gx7LKWEKrxZVXWK0o" target="_blank">WhatsApp Channel</a>
+      `;
+    }
+
+    // Menu Toggle
+    document.getElementById('menuBtn').addEventListener('click', () => {
+      let menu = document.getElementById('menu');
+      if(menu.style.right === '0px') {
+        menu.style.right = '-250px';
+      } else {
+        menu.style.right = '0px';
+      }
+    });
+
+    // Referral Handling
+    let params = new URLSearchParams(window.location.search);
+    if(params.has('ref')) {
+      let ref = params.get('ref');
+      if(users[ref] && currentUser && ref !== currentUser) {
+        users[ref].invites.push(currentUser);
+        saveUsers();
+      }
+    }
+
+    // Reward referrer if invitee buys plan
+    function rewardReferral(inviter, invitee) {
+      let refUser = users[inviter];
+      if(refUser && users[invitee].plan) {
+        refUser.balance += 120;
+        refUser.referralEarnings = (refUser.referralEarnings || 0) + 120;
+        saveUsers();
+      }
+    }
+
+    loginPage();
+  </script>
+</body>
+</html>
